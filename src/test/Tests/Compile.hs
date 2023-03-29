@@ -39,12 +39,10 @@ compilationTests = testGroup "Compilation and loading tests"
 loadFails :: FilePath -> Maybe Text -> String -> (SolException -> Bool) -> TestTree
 loadFails fp c e p = testCase fp . catch tryLoad $ assertBool e . p where
   tryLoad = do
-    cacheMeta <- newIORef mempty
     cacheContracts <- newIORef mempty
     cacheSlots <- newIORef mempty
     let env = Env { cfg = testConfig
                   , dapp = emptyDapp
-                  , metadataCache = cacheMeta
                   , fetchContractCache = cacheContracts
                   , fetchSlotCache = cacheSlots }
     void $ loadSolTests env (fp :| []) c

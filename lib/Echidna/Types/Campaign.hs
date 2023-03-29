@@ -9,6 +9,8 @@ import Echidna.Types.Corpus
 import Echidna.Types.Coverage (CoverageMap)
 import Echidna.Types.Test (EchidnaTest)
 import Echidna.Types.Tx (Tx)
+import EVM.Types (Addr)
+import Data.ByteString (ByteString)
 
 -- | Configuration for running an Echidna 'Campaign'.
 data CampaignConf = CampaignConf
@@ -51,10 +53,11 @@ data Campaign = Campaign
     -- ^ List of transactions with maximum coverage
   , ncallseqs   :: !Int
     -- ^ Number of times the callseq is called
+  , bytecodes :: !(Map Addr ByteString)
   }
 
 defaultCampaign :: Campaign
-defaultCampaign = Campaign mempty mempty mempty emptyDict False mempty 0
+defaultCampaign = Campaign mempty mempty mempty emptyDict False mempty 0 mempty
 
 defaultTestLimit :: Int
 defaultTestLimit = 50000

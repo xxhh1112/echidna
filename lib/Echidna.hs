@@ -63,6 +63,7 @@ prepareContract env contracts solFiles specifiedContract seed = do
   let world = mkWorld solConf eventMap signatureMap specifiedContract slitherInfo
 
   let deployedAddresses = Set.fromList $ AbiAddress <$> Map.keys vm._env._contracts
+  print ((._codehash) <$> vm._env._contracts )
   let constants = enhanceConstants slitherInfo
                   <> timeConstants
                   <> extremeConstants

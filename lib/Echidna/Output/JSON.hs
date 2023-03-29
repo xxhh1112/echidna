@@ -10,9 +10,6 @@ import Data.Foldable qualified as DF
 import Data.Map
 import Data.Text
 import Data.Text.Encoding (decodeUtf8)
-import Numeric (showHex)
-
-import EVM.Types (keccak')
 
 import Echidna.ABI (ppAbiValue, GenDict(..))
 import Echidna.Types (Gas)
@@ -99,7 +96,7 @@ encodeCampaign C.Campaign{..} = encode
            , _error = Nothing
            , _tests = mapTest <$> tests
            , seed = genDict.defSeed
-           , coverage = mapKeys (("0x" ++) . (`showHex` "") . keccak') $ DF.toList <$> coverage
+           , coverage = mapKeys show $ DF.toList <$> coverage
            , gasInfo = toList gasInfo
            }
 

@@ -5,7 +5,7 @@ import Control.Arrow (first)
 import Control.Monad (when, unless, forM_)
 import Control.Monad.Catch (MonadThrow(..))
 import Control.Monad.Extra (whenM)
-import Control.Monad.Reader (ReaderT(runReaderT))
+import Control.Monad.Reader (ReaderT(runReaderT), MonadIO (liftIO))
 import Control.Monad.State.Strict (execStateT)
 import Data.Foldable (toList)
 import Data.HashMap.Strict qualified as M
@@ -31,7 +31,7 @@ import EVM hiding (Env, env, contract, contracts, path)
 import EVM qualified (contracts, env)
 import EVM.ABI
 import EVM.Solidity
-import EVM.Types (Addr)
+import EVM.Types (Addr, keccak')
 
 import Echidna.ABI (encodeSig, encodeSigWithName, hashSig, fallback, commonTypeSizes, mkValidAbiInt, mkValidAbiUInt)
 import Echidna.Exec (execTx, initialVM)
@@ -41,7 +41,7 @@ import Echidna.Processor
 import Echidna.RPC (loadEthenoBatch)
 import Echidna.Test (createTests, isAssertionMode, isPropertyMode, isDapptestMode)
 import Echidna.Types.Config (EConfig(..), Env(..))
-import Echidna.Types.Signature (ContractName, FunctionHash, SolSignature, SignatureMap, getBytecodeMetadata)
+import Echidna.Types.Signature (ContractName, FunctionHash, SolSignature, SignatureMap)
 import Echidna.Types.Solidity
 import Echidna.Types.Test (EchidnaTest(..))
 import Echidna.Types.Tx (basicTx, createTxWithValue, unlimitedGasPerBlock, initialTimestamp, initialBlockNumber)
@@ -190,16 +190,17 @@ loadSpecified env name cs = do
   -- Filter again for dapptest tests or assertions checking if enabled
   let neFuns = filterMethods mainContract.contractName solConf.methodFilter (fallback NE.:| funs)
   -- Construct ABI mapping for World
+  print (cs <&> keccak' . (.runtimeCode))
   let abiMapping =
         if solConf.allContracts then
           M.fromList $ catMaybes $ cs <&> \contract ->
             let filtered = filterMethods contract.contractName
                                          solConf.methodFilter
                                          (abiOf solConf.prefix contract)
-            in (getBytecodeMetadata contract.runtimeCode,) <$> NE.nonEmpty filtered
+            in (0,) <$> NE.nonEmpty filtered
         else
           case NE.nonEmpty fabiOfc of
-            Just ne -> M.singleton (getBytecodeMetadata mainContract.runtimeCode) ne
+            Just ne -> M.singleton solConf.contractAddr ne
             Nothing -> mempty
 
   -- Set up initial VM, either with chosen contract or Etheno initialization file
@@ -252,6 +253,9 @@ loadSpecified env name cs = do
         vm3 <- execStateT deployment vm2
         when (isNothing $ currentContract vm3) $
           throwM $ DeploymentFailed solConf.contractAddr $ T.unlines $ extractEvents True env.dapp vm3
+
+        liftIO$ print "hehe"
+        liftIO$ print ((._codehash) <$> vm3._env._contracts )
 
         -- Run
         let transaction = execTx $ uncurry basicTx

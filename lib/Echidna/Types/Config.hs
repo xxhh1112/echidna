@@ -10,7 +10,6 @@ import EVM.Dapp (DappInfo)
 import EVM.Types (Addr, W256)
 
 import Echidna.Types.Campaign (CampaignConf)
-import Echidna.Types.Signature (MetadataCache)
 import Echidna.Types.Solidity (SolConf)
 import Echidna.Types.Tx  (TxConf)
 import Echidna.Types.Test  (TestConf)
@@ -54,7 +53,6 @@ data Env = Env
   { cfg :: EConfig
   , dapp :: DappInfo
 
-  , metadataCache :: IORef MetadataCache
   , fetchContractCache :: IORef (Map Addr (Maybe Contract))
   , fetchSlotCache :: IORef (Map Addr (Map W256 (Maybe W256)))
   }

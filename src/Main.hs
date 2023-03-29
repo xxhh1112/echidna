@@ -96,11 +96,9 @@ main = withUtf8 $ withCP65001 $ do
 
   cacheContractsRef <- newIORef $ fromMaybe mempty loadedContractsCache
   cacheSlotsRef <- newIORef $ fromMaybe mempty loadedSlotsCache
-  cacheMetaRef <- newIORef mempty
   let env = Env { cfg = cfg
                   -- TODO put in real path
                 , dapp = dappInfo "/" solcByName sourceCache
-                , metadataCache = cacheMetaRef
                 , fetchContractCache = cacheContractsRef
                 , fetchSlotCache = cacheSlotsRef }
 
@@ -147,14 +145,14 @@ main = withUtf8 $ withCP65001 $ do
             case r of
               Just (externalSourceCache, solcContract) -> do
                 let dir' = dir </> show addr
-                saveCoverage False runId dir' externalSourceCache [solcContract] campaign.coverage
-                saveCoverage True  runId dir' externalSourceCache [solcContract] campaign.coverage
+                saveCoverage False runId dir' externalSourceCache [solcContract] campaign.coverage campaign.bytecodes
+                saveCoverage True  runId dir' externalSourceCache [solcContract] campaign.coverage campaign.bytecodes
               Nothing -> pure ()
           Nothing -> pure ()
 
       -- save source coverage reports
-      saveCoverage False runId dir sourceCache contracts campaign.coverage
-      saveCoverage True  runId dir sourceCache contracts campaign.coverage
+      saveCoverage False runId dir sourceCache contracts campaign.coverage campaign.bytecodes
+      saveCoverage True  runId dir sourceCache contracts campaign.coverage campaign.bytecodes
 
   if isSuccessful campaign then exitSuccess else exitWith (ExitFailure 1)
 

@@ -22,7 +22,7 @@ import Echidna.Types.Random
 import Echidna.Orphans.JSON ()
 import Echidna.Types (fromEVM)
 import Echidna.Types.Buffer (forceBuf, forceLit)
-import Echidna.Types.Signature (SignatureMap, SolCall, ContractA, FunctionHash, MetadataCache, lookupBytecodeMetadata)
+import Echidna.Types.Signature (SignatureMap, SolCall, ContractA, FunctionHash)
 import Echidna.Types.Tx
 import Echidna.Types.World (World(..))
 import Echidna.Types.Campaign (Campaign(..))
@@ -42,18 +42,17 @@ getSignatures hmm (Just lmm) = usuallyVeryRarely hmm lmm -- once in a while, thi
 
 -- | Generate a random 'Transaction' with either synthesis or mutation of dictionary entries.
 genTx :: (MonadRandom m, MonadState Campaign m)
-  => MetadataCache
-  -> World
+  => World
   -> TxConf
   -> Map Addr Contract
   -> m Tx
-genTx memo world txConf deployedContracts = do
+genTx world txConf deployedContracts = do
   genDict <- gets (.genDict)
   sigMap <- getSignatures world.highSignatureMap world.lowSignatureMap
   sender <- rElem' world.senders
-  (dstAddr, dstAbis) <- rElem' $ Set.fromList $
+  (dstAddr, dstAbi) <- rElem' $ Set.fromList $
     mapMaybe (toContractA sigMap) (toList deployedContracts)
-  solCall <- genInteractionsM genDict dstAbis
+  solCall <- genInteractionsM genDict dstAbi
   value <- genValue txConf.maxValue genDict.dictValues world.payableSigs solCall
   ts <- (,) <$> genDelay txConf.maxTimeDelay genDict.dictValues
             <*> genDelay txConf.maxBlockDelay genDict.dictValues
@@ -67,10 +66,7 @@ genTx memo world txConf deployedContracts = do
             }
   where
     toContractA :: SignatureMap -> (Addr, Contract) -> Maybe ContractA
-    toContractA sigMap (addr, c) =
-      let bc = forceBuf $ c ^. bytecode
-          metadata = lookupBytecodeMetadata memo bc
-      in (addr,) <$> M.lookup metadata sigMap
+    toContractA sigMap (addr, c) = (addr,) <$> M.lookup addr sigMap
 
 genDelay :: MonadRandom m => W256 -> Set W256 -> m W256
 genDelay mv ds = do

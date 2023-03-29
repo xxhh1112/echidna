@@ -1,11 +1,11 @@
 module Echidna.Types.Coverage where
 
 import Control.Lens
-import Data.ByteString (ByteString)
 import Data.Map.Strict (Map)
 import Data.Set (Set, size, map)
 
 import Echidna.Types.Tx (TxResult)
+import EVM.Types (Addr)
 
 -- Program Counter directly obtained from the EVM
 type PC = Int
@@ -16,7 +16,7 @@ type FrameCount = Int
 -- Basic coverage information
 type CoverageInfo = (PC, OpIx, FrameCount, TxResult)
 -- Map with the coverage information needed for fuzzing and source code printing
-type CoverageMap = Map ByteString (Set CoverageInfo)
+type CoverageMap = Map Addr (Set CoverageInfo)
 
 -- | Given good point coverage, count unique points.
 coveragePoints :: CoverageMap -> Int

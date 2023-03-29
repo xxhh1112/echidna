@@ -7,14 +7,13 @@ import Control.Lens
 import Control.Monad (replicateM, when)
 import Control.Monad.Catch (MonadCatch(..), MonadThrow(..))
 import Control.Monad.Random.Strict (MonadRandom, RandT, evalRandT)
-import Control.Monad.Reader (MonadReader, asks, liftIO)
+import Control.Monad.Reader (MonadReader, asks)
 import Control.Monad.State.Strict (MonadState(..), StateT(..), evalStateT, execStateT, gets, MonadIO, modify')
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Random.Strict (liftCatch)
 import Data.Binary.Get (runGetOrFail)
 import Data.ByteString.Lazy qualified as LBS
 import Data.HashMap.Strict qualified as H
-import Data.IORef (readIORef, writeIORef)
 import Data.Map qualified as Map
 import Data.Map (Map, (\\))
 import Data.Maybe (fromMaybe, isJust, mapMaybe)
@@ -39,7 +38,6 @@ import Echidna.Types.Buffer (forceBuf)
 import Echidna.Types.Campaign
 import Echidna.Types.Config
 import Echidna.Types.Coverage (coveragePoints)
-import Echidna.Types.Signature (makeBytecodeCache, MetadataCache)
 import Echidna.Types.Test
 import Echidna.Types.Tx (TxCall(..), Tx(..), getResult, call)
 import Echidna.Types.World (World)
@@ -164,15 +162,15 @@ addToCorpus n res corpus = if null rtxs then corpus else Set.insert (n, rtxs) co
 -- | Generate a new sequences of transactions, either using the corpus or with
 -- randomly created transactions
 randseq :: (MonadRandom m, MonadReader Env m, MonadState Campaign m)
-        => MetadataCache -> Int -> Map Addr Contract -> World -> m [Tx]
-randseq memo seqLen deployedContracts world = do
+        => Int -> Map Addr Contract -> World -> m [Tx]
+randseq seqLen deployedContracts world = do
   camp <- get
   mutConsts <- asks (.cfg.campaignConf.mutConsts)
   txConf <- asks (.cfg.txConf)
   -- TODO: include reproducer when optimizing
   --let rs = filter (not . null) $ map (.testReproducer) $ ca._tests
   -- Generate new random transactions
-  randTxs <- replicateM seqLen (genTx memo world txConf deployedContracts)
+  randTxs <- replicateM seqLen (genTx world txConf deployedContracts)
   -- Generate a random mutator
   cmut <- if seqLen == 1 then seqMutatorsStateless (fromConsts mutConsts)
                          else seqMutatorsStateful (fromConsts mutConsts)
@@ -201,12 +199,10 @@ callseq initialCorpus vm world seqLen = do
   -- Then, we get the current campaign state
   camp <- get
   -- Then, we generate the actual transaction in the sequence
-  metaCacheRef <- asks (.metadataCache)
-  metaCache <- liftIO $ readIORef metaCacheRef
   -- Replay transactions in the corpus during the first iterations
   txSeq <- if length initialCorpus > camp.ncallseqs
     then pure $ initialCorpus !! camp.ncallseqs
-    else randseq metaCache seqLen vm._env._contracts world
+    else randseq seqLen vm._env._contracts world
 
   -- We then run each call sequentially. This gives us the result of each call, plus a new state
   (res, (vm', camp')) <- runStateT (evalSeq vm ef txSeq) (vm, camp)
@@ -242,6 +238,7 @@ callseq initialCorpus vm world seqLen = do
     , newCoverage = False
       -- Keep track of the number of calls to `callseq`
     , ncallseqs = camp.ncallseqs + 1
+    , bytecodes = Map.union camp.bytecodes (runtimeCode <$> vm._env._contracts)
     }
   where
     -- Given a list of transactions and a return typing rule, this checks whether we know the return
@@ -260,6 +257,7 @@ callseq initialCorpus vm world seqLen = do
               Just (type', Set.singleton abiValue)
             _ -> Nothing
         _ -> Nothing
+    runtimeCode contract = forceBuf $ view bytecode contract
 
 -- | Run a fuzzing campaign given an initial universe state, some tests, and an optional dictionary
 -- to generate calls with. Return the 'Campaign' state once we can't solve or shrink anything.
@@ -275,18 +273,12 @@ campaign
 campaign u vm world ts dict initialCorpus = do
   conf <- asks (.cfg.campaignConf)
 
-  metaCacheRef <- asks (.metadataCache)
-  fetchContractCacheRef <- asks (.fetchContractCache)
-  external <- liftIO $ Map.mapMaybe id <$> readIORef fetchContractCacheRef
-  liftIO $ writeIORef metaCacheRef (memo (vm._env._contracts <> external))
-
   let c = fromMaybe mempty conf.knownCoverage
   let effectiveSeed = fromMaybe dict.defSeed conf.seed
       effectiveGenDict = dict { defSeed = effectiveSeed }
-      camp = Campaign ts c mempty effectiveGenDict False Set.empty 0
+      camp = Campaign ts c mempty effectiveGenDict False Set.empty 0 mempty
   execStateT (evalRandT (lift u >> runCampaign) (mkStdGen effectiveSeed)) camp
   where
-    memo = makeBytecodeCache . map (forceBuf . (^. bytecode)) . Map.elems
     runCampaign = do
       testStates <- gets (fmap (.state) . (.tests))
       CampaignConf{testLimit, stopOnFail, seqLen, shrinkLimit} <- asks (.cfg.campaignConf)

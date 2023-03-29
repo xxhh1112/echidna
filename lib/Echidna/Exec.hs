@@ -30,9 +30,7 @@ import EVM.Types (Expr(ConcreteBuf, Lit), hexText)
 import Echidna.Events (emptyEvents)
 import Echidna.Transaction
 import Echidna.Types (ExecException(..), Gas, fromEVM)
-import Echidna.Types.Buffer (forceBuf)
 import Echidna.Types.Coverage (CoverageMap)
-import Echidna.Types.Signature (MetadataCache, getBytecodeMetadata, lookupBytecodeMetadata)
 import Echidna.Types.Tx (TxCall(..), Tx, TxResult(..), call, dst, initialTimestamp, initialBlockNumber)
 import Echidna.Types.Config (Env(..), EConfig(..), UIConf(..), OperationMode(..), OutputFormat(Text))
 import Echidna.Types.Solidity (SolConf(..))
@@ -113,11 +111,6 @@ execTxWith l onErr executeTx tx = do
                 case ret of
                   -- TODO: fix hevm to not return an empty contract in case of an error
                   Just contract | contract._contractcode /= EVM.RuntimeCode (EVM.ConcreteRuntimeCode "") -> do
-                    metaCacheRef <- asks (.metadataCache)
-                    metaCache <- liftIO $ readIORef metaCacheRef
-                    let bc = forceBuf (contract ^. bytecode)
-                    liftIO $ atomicWriteIORef metaCacheRef $ Map.insert bc (getBytecodeMetadata bc) metaCache
-
                     l %= execState (continuation contract)
                     liftIO $ atomicWriteIORef cacheRef $ Map.insert addr (Just contract) cache
                   _ -> do
@@ -249,43 +242,35 @@ execTxWithCov
   -> m ((VMResult, Gas), CoverageMap)
 execTxWithCov tx = do
   vm <- get
-  metaCacheRef <- asks (.metadataCache)
-  cache <- liftIO $ readIORef metaCacheRef
-  (r, (vm', cm)) <- runStateT (execTxWith _1 vmExcept (execCov cache) tx) (vm, mempty)
+  (r, (vm', cm)) <- runStateT (execTxWith _1 vmExcept execCov tx) (vm, mempty)
   put vm'
   pure (r, cm)
   where
     -- the same as EVM.exec but collects coverage, will stop on a query
-    execCov cache = do
-     (vm, cm) <- get
-     let (r, vm', cm') = loop cache vm cm
-     put (vm', cm')
-     pure r
+    execCov = do
+      (vm, cm) <- get
+      let (r, vm', cm') = loop vm cm
+      put (vm', cm')
+      pure r
 
     -- | Repeatedly exec a step and add coverage until we have an end result
-    loop :: MetadataCache -> VM -> CoverageMap -> (VMResult, VM, CoverageMap)
-    loop cache vm cm = case vm._result of
-      Nothing  -> loop cache (stepVM vm) (addCoverage cache vm cm)
-      Just r   -> (r, vm, cm)
+    loop :: VM -> CoverageMap -> (VMResult, VM, CoverageMap)
+    loop !vm !cm = case vm._result of
+      Nothing -> loop (stepVM vm) (addCoverage vm cm)
+      Just r  -> (r, vm, cm)
 
     -- | Execute one instruction on the EVM
     stepVM :: VM -> VM
     stepVM = execState exec1
 
     -- | Add current location to the CoverageMap
-    addCoverage :: MetadataCache -> VM -> CoverageMap -> CoverageMap
-    addCoverage cache vm = M.alter
+    addCoverage :: VM -> CoverageMap -> CoverageMap
+    addCoverage vm = M.alter
                        (Just . maybe mempty (S.insert $ currentCovLoc vm))
-                       (currentMeta cache vm)
+                       vm._state._contract
 
     -- | Get the VM's current execution location
     currentCovLoc vm = (vm._state._pc, fromMaybe 0 $ vmOpIx vm, length vm._frames, Stop)
-
-    -- | Get the current contract's bytecode metadata
-    currentMeta cache vm = fromMaybe (error "no contract information on coverage") $ do
-      buffer <- vm ^? env . contracts . at vm._state._contract . _Just . bytecode
-      let bc = forceBuf buffer
-      pure $ lookupBytecodeMetadata cache bc
 
 initialVM :: Bool -> VM
 initialVM ffi = vmForEthrunCreation mempty

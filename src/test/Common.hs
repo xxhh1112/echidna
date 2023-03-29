@@ -96,12 +96,10 @@ runContract f selectedContract cfg = do
   let sourceCache = selectSourceCache selectedContract sourceCaches
   let solcByName = fromList [(c.contractName, c) | c <- contracts]
 
-  cacheMeta <- newIORef mempty
   cacheContracts <- newIORef mempty
   cacheSlots <- newIORef mempty
   let env = Env { cfg = cfg
                 , dapp = dappInfo "/" solcByName sourceCache
-                , metadataCache = cacheMeta
                 , fetchContractCache = cacheContracts
                 , fetchSlotCache = cacheSlots }
   (vm, world, echidnaTests, dict) <- prepareContract env contracts (f :| []) selectedContract seed
@@ -129,12 +127,10 @@ testContract' fp n v configPath s as = testCase fp $ withSolcVersion v $ do
 
 checkConstructorConditions :: FilePath -> String -> TestTree
 checkConstructorConditions fp as = testCase fp $ do
-  cacheMeta <- newIORef mempty
   cacheContracts <- newIORef mempty
   cacheSlots <- newIORef mempty
   let env = Env { cfg = testConfig
                 , dapp = emptyDapp
-                , metadataCache = cacheMeta
                 , fetchContractCache = cacheContracts
                 , fetchSlotCache = cacheSlots }
   (v, _, t) <- loadSolTests env (fp :| []) Nothing
