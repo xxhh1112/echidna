@@ -71,13 +71,15 @@ data AssertLocation = AssertLocation
   , endingColumn :: Int
   } deriving (Show)
 
+type AssertMappingByContract = Map ContractName (Map FunctionName [AssertLocation])
+
 instance FromJSON AssertLocation where
   parseJSON = withObject "" $ \o -> do
     start <- o.: "start"
     filenameRelative <- o.: "filename_relative"
     filenameAbsolute <- o.: "filename_absolute"
     assertLines <- o.: "lines"
-    startColumn <- o.: "start_column"
+    startColumn <- o.: "starting_column"
     endingColumn <- o.: "ending_column" 
     pure AssertLocation {..}
 
@@ -85,7 +87,7 @@ instance FromJSON AssertLocation where
 data SlitherInfo = SlitherInfo
   { payableFunctions :: Map ContractName [FunctionName]
   , constantFunctions :: Map ContractName [FunctionName]
-  , asserts :: Map ContractName (Map FunctionName [AssertLocation])
+  , asserts :: AssertMappingByContract
   , constantValues  :: Map ContractName (Map FunctionName [AbiValue])
   , generationGraph :: Map ContractName (Map FunctionName [FunctionName])
   , solcVersions :: [Version]
