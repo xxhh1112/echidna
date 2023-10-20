@@ -48,6 +48,8 @@ dependencies:
   - yaml
   - http-conduit
   - html-conduit
+  - warp
+  - wai-extra
   - xml-conduit
 
 language: GHC2021
