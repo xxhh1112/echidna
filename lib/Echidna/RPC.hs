@@ -20,6 +20,7 @@ import EVM.Types
 
 import Echidna.Orphans.JSON ()
 import Echidna.Types (emptyAccount)
+import Echidna.Types.Buffer (forceLit)
 
 rpcUrlEnv :: IO (Maybe Text)
 rpcUrlEnv = do
@@ -51,7 +52,7 @@ fetchChainId Nothing = pure Nothing
 
 data FetchedContractData = FetchedContractData
   { runtimeCode :: ByteString
-  , nonce :: W256
+  , nonce :: Maybe W64
   , balance :: W256
   }
   deriving (Generic, ToJSON, FromJSON, Show)
@@ -63,17 +64,17 @@ fromFetchedContractData :: FetchedContractData -> Contract
 fromFetchedContractData contractData =
   (initialContract (RuntimeCode (ConcreteRuntimeCode contractData.runtimeCode)))
     { nonce = contractData.nonce
-    , balance = contractData.balance
+    , balance = Lit contractData.balance
     , external = True
     }
 
 toFetchedContractData :: Contract -> FetchedContractData
 toFetchedContractData contract =
-  let code = case contract.contractcode of
+  let code = case contract.code of
                RuntimeCode (ConcreteRuntimeCode c) -> c
                _ -> error "unexpected code"
   in FetchedContractData
     { runtimeCode = code
     , nonce = contract.nonce
-    , balance = contract.balance
+    , balance = forceLit contract.balance
     }

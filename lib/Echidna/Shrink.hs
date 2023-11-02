@@ -19,10 +19,11 @@ import Echidna.Types.Tx (Tx(..))
 import Echidna.Types.Config
 import Echidna.Types.Campaign (CampaignConf(..))
 import Echidna.Test (getResultFromVM, checkETest)
+import Control.Monad.ST (RealWorld)
 
 shrinkTest
   :: (MonadIO m, MonadThrow m, MonadRandom m, MonadReader Env m)
-  => VM
+  => VM RealWorld
   -> EchidnaTest
   -> m (Maybe EchidnaTest)
 shrinkTest vm test = do
@@ -53,11 +54,11 @@ shrinkTest vm test = do
 -- generate a smaller one that still solves that test.
 shrinkSeq
   :: (MonadIO m, MonadRandom m, MonadReader Env m, MonadThrow m)
-  => VM
-  -> (VM -> m (TestValue, VM))
+  => VM RealWorld
+  -> (VM RealWorld -> m (TestValue, VM RealWorld))
   -> TestValue
   -> [Tx]
-  -> m (Maybe ([Tx], TestValue, VM))
+  -> m (Maybe ([Tx], TestValue, VM RealWorld))
 shrinkSeq vm f v txs = do
   txs' <- uniform =<< sequence [shorten, shrunk]
   (value, vm') <- check txs' vm

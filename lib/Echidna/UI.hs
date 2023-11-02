@@ -46,6 +46,7 @@ import Echidna.Types.Tx (Tx)
 import Echidna.Types.World (World)
 import Echidna.UI.Report
 import Echidna.Utility (timePrefix, getTimestamp)
+import Control.Monad.ST (RealWorld)
 
 data UIEvent =
   CampaignUpdated LocalTime [EchidnaTest] [WorkerState]
@@ -57,7 +58,7 @@ data UIEvent =
 -- print non-interactive output in desired format at the end
 ui
   :: (MonadCatch m, MonadRandom m, MonadReader Env m, MonadUnliftIO m)
-  => VM      -- ^ Initial VM state
+  => VM RealWorld -- ^ Initial VM state
   -> World   -- ^ Initial world state
   -> GenDict
   -> [[Tx]]
@@ -107,9 +108,9 @@ ui vm world dict initialCorpus = do
         writeBChan uiChannel (CampaignUpdated now tests states)
 
         -- TODO: remove and use events for this
-        c <- readIORef env.fetchContractCache
-        s <- readIORef env.fetchSlotCache
-        writeBChan uiChannel (FetchCacheUpdated c s)
+        -- c <- readIORef env.fetchContractCache
+        -- s <- readIORef env.fetchSlotCache
+        -- writeBChan uiChannel (FetchCacheUpdated c s)
 
       -- UI initialization
       let buildVty = do

@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 module Echidna.Types.Config where
 
 import Control.Concurrent (Chan)
@@ -10,7 +11,7 @@ import Data.Time (LocalTime)
 import Data.Word (Word64)
 
 import EVM.Dapp (DappInfo)
-import EVM.Types (Addr, Contract, W256)
+import EVM.Types (Addr, Contract, W256, Expr, EType (EAddr))
 
 import Echidna.Types.Campaign (CampaignConf, CampaignEvent)
 import Echidna.Types.Corpus (Corpus)
@@ -72,7 +73,7 @@ data Env = Env
   , corpusRef :: IORef Corpus
 
   , metadataCache :: IORef MetadataCache
-  , fetchContractCache :: IORef (Map Addr (Maybe Contract))
+  , fetchContractCache :: IORef (Map (Expr 'EAddr) (Maybe Contract))
   , fetchSlotCache :: IORef (Map Addr (Map W256 (Maybe W256)))
   , chainId :: Maybe W256
   }

@@ -202,7 +202,7 @@ data TxConf = TxConf
   }
 
 -- | Transform a VMResult into a more hash friendly sum type
-getResult :: VMResult -> TxResult
+getResult :: VMResult s -> TxResult
 getResult = \case
   VMSuccess b | forceBuf b == encodeAbiValue (AbiBool True)  -> ReturnTrue
               | forceBuf b == encodeAbiValue (AbiBool False) -> ReturnFalse
@@ -213,6 +213,7 @@ getResult = \case
 
   Unfinished (UnexpectedSymbolicArg{})    -> ErrorUnexpectedSymbolic
   Unfinished (MaxIterationsReached _ _)   -> ErrorMaxIterationsReached
+  Unfinished (JumpIntoSymbolicCode _ _)   -> undefined
 
   VMFailure (BalanceTooLow _ _)           -> ErrorBalanceTooLow
   VMFailure (UnrecognizedOpcode _)        -> ErrorUnrecognizedOpcode

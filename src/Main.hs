@@ -18,7 +18,7 @@ import Data.IORef (newIORef, readIORef)
 import Data.List.NonEmpty qualified as NE
 import Data.Map (Map)
 import Data.Map qualified as Map
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (fromMaybe, isJust, fromJust)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Time.Clock.System (getSystemTime, systemSeconds)
@@ -183,7 +183,7 @@ main = withUtf8 $ withCP65001 $ do
   -- code fetched from the outside
   externalSolcContract :: Addr -> Contract -> IO (Maybe (SourceCache, SolcContract))
   externalSolcContract addr c = do
-    let runtimeCode = forceBuf $ view bytecode c
+    let runtimeCode = forceBuf $ fromJust $ view bytecode c
     putStr $ "Fetching Solidity source for contract at address " <> show addr <> "... "
     srcRet <- Etherscan.fetchContractSource addr
     putStrLn $ if isJust srcRet then "Success!" else "Error!"

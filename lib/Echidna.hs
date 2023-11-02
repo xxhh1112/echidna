@@ -27,6 +27,8 @@ import Echidna.Types.Signature
 import Echidna.Types.Solidity
 import Echidna.Types.Tx
 import Echidna.Types.World
+import Control.Monad.ST (RealWorld)
+import Echidna.Types.Buffer (forceLitAddr)
 
 -- | This function is used to prepare, process, compile and initialize smart contracts for testing.
 -- It takes:
@@ -45,7 +47,7 @@ prepareContract
   -> NonEmpty FilePath
   -> Maybe ContractName
   -> Seed
-  -> IO (VM, World, GenDict)
+  -> IO (VM RealWorld, World, GenDict)
 prepareContract env contracts solFiles specifiedContract seed = do
   let solConf = env.cfg.solConf
 
@@ -64,13 +66,13 @@ prepareContract env contracts solFiles specifiedContract seed = do
     echidnaTests = createTests solConf.testMode
                                solConf.testDestruction
                                testNames
-                               vm.state.contract
+                               (forceLitAddr vm.state.contract)
                                funs
 
     eventMap = Map.unions $ map (.eventMap) contracts
     world = mkWorld solConf eventMap signatureMap specifiedContract slitherInfo
 
-    deployedAddresses = Set.fromList $ AbiAddress <$> Map.keys vm.env.contracts
+    deployedAddresses = Set.fromList $ AbiAddress . forceLitAddr <$> Map.keys vm.env.contracts
     constants = enhanceConstants slitherInfo
                 <> timeConstants
                 <> extremeConstants
@@ -79,7 +81,7 @@ prepareContract env contracts solFiles specifiedContract seed = do
 
     dict = mkGenDict env.cfg.campaignConf.dictFreq
                      -- make sure we don't use cheat codes to form fuzzing call sequences
-                     (Set.delete (AbiAddress cheatCode) constants)
+                     (Set.delete (AbiAddress $ forceLitAddr cheatCode) constants)
                      Set.empty
                      seed
                      (returnTypes contracts)

@@ -12,13 +12,14 @@ import Echidna.Events (Events)
 import Echidna.Types (ExecException)
 import Echidna.Types.Signature (SolSignature)
 import Echidna.Types.Tx (Tx, TxResult)
+import Control.Monad.ST (RealWorld)
 
 -- | Test mode is parsed from a string
 type TestMode = String
 
 -- | Configuration for the creation of Echidna tests.
 data TestConf = TestConf
-  { classifier :: Text -> VM -> Bool
+  { classifier :: Text -> VM RealWorld -> Bool
     -- ^ Given a VM state and test name, check if a test just passed (typically
     -- examining '_result'.)
   , testSender :: Addr -> Addr
@@ -51,7 +52,7 @@ data TestType
   = PropertyTest Text Addr
   | OptimizationTest Text Addr
   | AssertionTest Bool SolSignature Addr
-  | CallTest Text (DappInfo -> VM -> TestValue)
+  | CallTest Text (DappInfo -> VM RealWorld -> TestValue)
   | Exploration
 
 instance Eq TestType where
